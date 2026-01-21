@@ -15,13 +15,12 @@ def afficher_menu():
     print("4. Voir transactions du mois")
     print("5. Lister revenus du mois")
     print("6. Lister dépenses du mois")
-    print("7. Voir totaux du mois par personne")
-    print("8. Voir totaux globaux par personne")
-    print("9. Analyse dépenses (Commun/Perso)")
-    print("10. Analyse revenus par auteur")
-    print("11. Graphiques d'évolution mensuelle")
-    print("12. Graphique comparatif auteurs")
-    print("13. Quitter")
+    print("7. Voir totaux par personne")
+    print("8. Analyse dépenses (Commun/Perso)")
+    print("9. Analyse revenus par auteur")
+    print("10. Graphiques d'évolution mensuelle")
+    print("11. Graphique comparatif auteurs")
+    print("12. Quitter")
     print("=" * 50)
 
 
@@ -151,20 +150,30 @@ def voir_transactions_mois(db: BudgetDatabase):
 
 
 def lister_revenus_mois(db: BudgetDatabase):
-    """Liste tous les revenus d'un mois donné"""
+    """Liste tous les revenus d'un mois donné avec option de filtrage par auteur"""
     print("\n--- LISTE DES REVENUS DU MOIS ---")
     annee = int(input("Année: "))
     mois = int(input("Mois (1-12): "))
 
-    revenus = db.obtenir_transactions_mois(annee, mois, type_transaction="Revenu")
+    # Nouveau: Option de filtrage par auteur
+    auteur = input("Filtrer par auteur (Entrée pour tous): ").strip() or None
+
+    revenus = db.obtenir_transactions_mois(annee, mois, type_transaction="Revenu", auteur=auteur)
 
     if not revenus:
         print("\nAucun revenu pour ce mois")
+        if auteur:
+            print(f"(avec le filtre auteur: {auteur})")
         return
 
     total = sum(r["Montant"] for r in revenus)
 
-    print(f"\n{len(revenus)} revenu(s) pour {mois:02d}/{annee}:")
+    # Affichage du titre avec mention du filtre si applicable
+    titre = f"\n{len(revenus)} revenu(s) pour {mois:02d}/{annee}"
+    if auteur:
+        titre += f" - Auteur: {auteur}"
+    print(titre + ":")
+
     print("-" * 100)
     print(f"{'ID':<5} {'Date':<12} {'Utilité':<10} {'Montant':<10} {'Auteur':<15} {'Description':<30}")
     print("-" * 100)
@@ -179,20 +188,30 @@ def lister_revenus_mois(db: BudgetDatabase):
 
 
 def lister_depenses_mois(db: BudgetDatabase):
-    """Liste toutes les dépenses d'un mois donné"""
+    """Liste toutes les dépenses d'un mois donné avec option de filtrage par auteur"""
     print("\n--- LISTE DES DÉPENSES DU MOIS ---")
     annee = int(input("Année: "))
     mois = int(input("Mois (1-12): "))
 
-    depenses = db.obtenir_transactions_mois(annee, mois, type_transaction="Depense")
+    # Nouveau: Option de filtrage par auteur
+    auteur = input("Filtrer par auteur (Entrée pour tous): ").strip() or None
+
+    depenses = db.obtenir_transactions_mois(annee, mois, type_transaction="Depense", auteur=auteur)
 
     if not depenses:
         print("\nAucune dépense pour ce mois")
+        if auteur:
+            print(f"(avec le filtre auteur: {auteur})")
         return
 
     total = sum(d["Montant"] for d in depenses)
 
-    print(f"\n{len(depenses)} dépense(s) pour {mois:02d}/{annee}:")
+    # Affichage du titre avec mention du filtre si applicable
+    titre = f"\n{len(depenses)} dépense(s) pour {mois:02d}/{annee}"
+    if auteur:
+        titre += f" - Auteur: {auteur}"
+    print(titre + ":")
+
     print("-" * 100)
     print(f"{'ID':<5} {'Date':<12} {'Utilité':<10} {'Montant':<10} {'Auteur':<15} {'Description':<30}")
     print("-" * 100)
@@ -206,54 +225,56 @@ def lister_depenses_mois(db: BudgetDatabase):
     print(f"{'TOTAL':<37} {total:<10.2f}")
 
 
-def voir_totaux_mois(db: BudgetDatabase):
-    """Affiche les totaux par personne pour un mois"""
-    print("\n--- TOTAUX DU MOIS PAR PERSONNE ---")
-    annee = int(input("Année: "))
-    mois = int(input("Mois (1-12): "))
+def voir_totaux_par_personne(db: BudgetDatabase):
+    """Affiche les totaux par personne (mois spécifique ou global)"""
+    print("\n--- TOTAUX PAR PERSONNE ---")
 
-    totaux = db.obtenir_totaux_mois(annee, mois)
+    annee_str = input("Année (Entrée pour global): ").strip()
 
-    if not totaux:
-        print("\nAucune transaction pour ce mois")
-        return
+    if not annee_str:
+        # Mode global
+        totaux = db.obtenir_totaux_globaux()
 
-    print(f"\nTotaux pour {mois:02d}/{annee}:")
-    print("-" * 60)
-    print(f"{'Auteur':<20} {'Revenus':<15} {'Dépenses':<15} {'Solde':<15}")
-    print("-" * 60)
+        if not totaux:
+            print("\nAucune transaction dans la base")
+            return
 
-    for auteur, montants in totaux.items():
-        solde = montants["revenus"] - montants["depenses"]
-        print(f"{auteur:<20} {montants['revenus']:<15.2f} {montants['depenses']:<15.2f} {solde:<15.2f}")
+        print("\nTotaux sur toute la période:")
+        print("-" * 60)
+        print(f"{'Auteur':<20} {'Revenus':<15} {'Dépenses':<15} {'Solde':<15}")
+        print("-" * 60)
 
+        revenus_total = 0
+        depenses_total = 0
 
-def voir_totaux_globaux(db: BudgetDatabase):
-    """Affiche les totaux globaux par personne"""
-    print("\n--- TOTAUX GLOBAUX PAR PERSONNE ---")
+        for auteur, montants in totaux.items():
+            solde = montants["revenus"] - montants["depenses"]
+            revenus_total += montants["revenus"]
+            depenses_total += montants["depenses"]
+            print(f"{auteur:<20} {montants['revenus']:<15.2f} {montants['depenses']:<15.2f} {solde:<15.2f}")
 
-    totaux = db.obtenir_totaux_globaux()
+        print("-" * 60)
+        print(f"{'TOTAL':<20} {revenus_total:<15.2f} {depenses_total:<15.2f} {revenus_total - depenses_total:<15.2f}")
 
-    if not totaux:
-        print("\nAucune transaction dans la base")
-        return
+    else:
+        # Mode mois spécifique
+        annee = int(annee_str)
+        mois = int(input("Mois (1-12): "))
 
-    print("\nTotaux sur toute la période:")
-    print("-" * 60)
-    print(f"{'Auteur':<20} {'Revenus':<15} {'Dépenses':<15} {'Solde':<15}")
-    print("-" * 60)
+        totaux = db.obtenir_totaux_mois(annee, mois)
 
-    revenus_total = 0
-    depenses_total = 0
+        if not totaux:
+            print(f"\nAucune transaction pour {mois:02d}/{annee}")
+            return
 
-    for auteur, montants in totaux.items():
-        solde = montants["revenus"] - montants["depenses"]
-        revenus_total += montants["revenus"]
-        depenses_total += montants["depenses"]
-        print(f"{auteur:<20} {montants['revenus']:<15.2f} {montants['depenses']:<15.2f} {solde:<15.2f}")
+        print(f"\nTotaux pour {mois:02d}/{annee}:")
+        print("-" * 60)
+        print(f"{'Auteur':<20} {'Revenus':<15} {'Dépenses':<15} {'Solde':<15}")
+        print("-" * 60)
 
-    print("-" * 60)
-    print(f"{'TOTAL':<20} {revenus_total:<15.2f} {depenses_total:<15.2f} {revenus_total - depenses_total:<15.2f}")
+        for auteur, montants in totaux.items():
+            solde = montants["revenus"] - montants["depenses"]
+            print(f"{auteur:<20} {montants['revenus']:<15.2f} {montants['depenses']:<15.2f} {solde:<15.2f}")
 
 
 def analyse_depenses_utilite(db: BudgetDatabase, visualizer: BudgetVisualizer):
@@ -390,18 +411,16 @@ def main():
                 elif choix == "6":
                     lister_depenses_mois(db)
                 elif choix == "7":
-                    voir_totaux_mois(db)
+                    voir_totaux_par_personne(db)
                 elif choix == "8":
-                    voir_totaux_globaux(db)
-                elif choix == "9":
                     analyse_depenses_utilite(db, visualizer)
-                elif choix == "10":
+                elif choix == "9":
                     analyse_revenus_auteur(db, visualizer)
-                elif choix == "11":
+                elif choix == "10":
                     graphique_evolution(visualizer)
-                elif choix == "12":
+                elif choix == "11":
                     graphique_comparatif(visualizer)
-                elif choix == "13":
+                elif choix == "12":
                     print("\nAu revoir!")
                     break
                 else:
